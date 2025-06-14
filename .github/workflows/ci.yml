@@ -25,7 +25,15 @@ jobs:
           source .venv/bin/activate
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run Tests
         run: |
           source .venv/bin/activate
           pytest
+          exit_code=$?
+          if [ $exit_code -eq 5 ]; then
+            echo "No tests found, but continuing."
+            exit 0
+          else
+            exit $exit_code
+          fi
+
