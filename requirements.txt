@@ -1,0 +1,26 @@
+# Core
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+scipy
+statsmodels
+
+# EDA & Plotting
+plotly
+missingno
+sweetviz
+
+# Model interpretation
+shap
+lime
+
+# Dev & CI
+dvc
+pytest
+
+# Notebook and tooling
+jupyter
+ipykernel
+notebook
