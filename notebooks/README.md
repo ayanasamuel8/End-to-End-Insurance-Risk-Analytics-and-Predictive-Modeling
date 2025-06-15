@@ -1,5 +1,7 @@
 # Notebooks
 
-This folder contains exploratory and modeling notebooks.
+This folder contains Jupyter notebooks for exploratory data analysis (EDA), feature engineering, and modeling.
 
-- `eda.ipynb`: Exploratory Data Analysis
+- `task_1/`: Notebooks related to Task 1 (e.g., data understanding, preprocessing).
+
+Notebooks are organized by task or experiment for reproducibility.
