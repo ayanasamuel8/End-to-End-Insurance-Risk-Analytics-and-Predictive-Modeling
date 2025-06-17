@@ -6,4 +6,3 @@ data/*
 !.dvc
 !data/raw/raw_data.csv.dvc
 !data/cleaned/cleaned_data.csv.dvc
-!data/cleaned
