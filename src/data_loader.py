@@ -7,7 +7,7 @@ def load_data(path: str) -> pd.DataFrame:
     skiprows=0 
     )
 def load_raw_data(path: str) -> pd.DataFrame:
-    return pd.read_csv(path)
+    return pd.read_csv(path, low_memory=False)
 
 def check_structure(df: pd.DataFrame):
     return df.info(), df.dtypes
