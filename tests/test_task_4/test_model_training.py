@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 from joblib import load
 from src.task_4.model_training import train_and_compare_models
+from src.task_4.data_processing import prepare_claim_severity_data
 
 # Create a small dummy CSV for testing
 dummy_csv_path = 'test_dummy_data.csv'
@@ -11,6 +12,8 @@ dummy_csv_path = 'test_dummy_data.csv'
 def setup_dummy_data():
     # Create a dummy dataset for claim severity with minimal rows and columns
     data = {
+        'UnderwrittenCoverID': [1, 2, 3, 4],
+        'PolicyID': [101, 102, 103, 104],
         'TotalClaims': [100, 200, 150, 300],
         'TotalPremium': [1000, 2000, 1500, 3000],
         'RegistrationYear': [2020, 2019, 2021, 2018],
@@ -20,7 +23,7 @@ def setup_dummy_data():
         'CalculatedPremiumPerTerm': [100, 150, 120, 130],
         'TermFrequency': [12, 12, 12, 12],
         # Add categorical columns as strings (with small number of categories)
-        'Gender': ['male', 'female', 'male', 'female'],
+        'Gender': ['Male', 'Female', 'Male', 'Female'],
         'claim_indicator': [1, 0, 1, 0]  # Just to mimic full data format
     }
     df = pd.DataFrame(data)
@@ -29,7 +32,16 @@ def setup_dummy_data():
     os.remove(dummy_csv_path)
 
 def test_train_and_compare_models_runs():
-    best_model, best_name, results = train_and_compare_models(dummy_csv_path)
+    # Read the dummy data
+    df = pd.read_csv(dummy_csv_path)
+    # Assume 'TotalClaims' is the target
+    # X = df.drop(columns=['TotalClaims'])
+    # y = df['TotalClaims']
+
+    # Simple train-test split (2 train, 2 test)
+    X_train, X_test, y_train, y_test = prepare_claim_severity_data(df)
+
+    best_model, best_name, results = train_and_compare_models(X_train, y_train, X_test, y_test)
 
     # Check return types
     assert best_name in results
