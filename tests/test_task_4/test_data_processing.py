@@ -9,6 +9,8 @@ from src.task_4.data_processing import (
     is_date_column,
     prepare_claim_probability_data,
     prepare_claim_severity_data,
+    split_claim_probability_data,
+    split_claim_severity_data,
 )
 from src.task_4.feature_engineering import add_features
 
@@ -44,7 +46,7 @@ def test_severity_frame_keeps_only_positive_claims_and_drops_identifiers(synthet
     frame = build_severity_frame(add_features(synthetic_df))
     assert (frame['TotalClaims'] > 0).all()
     assert len(frame) == (synthetic_df['TotalClaims'] > 0).sum()
-    for column in ('UnderwrittenCoverID', 'PolicyID', 'claim_indicator', 'ClaimRatio', 'Citizenship'):
+    for column in ('UnderwrittenCoverID', 'claim_indicator', 'ClaimRatio', 'Citizenship'):
         assert column not in frame.columns
     assert 'TransactionMonth_year' in frame.columns
     assert all(pd.api.types.is_numeric_dtype(t) for t in frame.dtypes)
@@ -52,7 +54,7 @@ def test_severity_frame_keeps_only_positive_claims_and_drops_identifiers(synthet
 
 def test_probability_frame_has_no_claim_amount_columns(synthetic_df):
     frame = build_probability_frame(add_features(synthetic_df))
-    for column in ('TotalClaims', 'ClaimRatio', 'UnderwrittenCoverID', 'PolicyID'):
+    for column in ('TotalClaims', 'ClaimRatio', 'UnderwrittenCoverID'):
         assert column not in frame.columns
     assert set(frame['claim_indicator'].unique()) == {0, 1}
     assert len(frame) == len(synthetic_df)
@@ -71,7 +73,8 @@ def test_prepare_splits_are_reproducible_and_disjoint(synthetic_df):
         pd.testing.assert_index_equal(left.index, right.index)
     X_train, X_test, y_train, y_test = first
     assert set(X_train.index).isdisjoint(X_test.index)
-    assert abs(len(X_test) - len(X_train) / 3) <= 1
+    assert 0.1 < len(X_test) / (len(X_train) + len(X_test)) < 0.35
+    assert 'PolicyID' not in X_train.columns
     assert 'TotalClaims' not in X_train.columns
     assert np.isfinite(y_train).all()
 
@@ -79,3 +82,20 @@ def test_prepare_splits_are_reproducible_and_disjoint(synthetic_df):
 def test_probability_split_keeps_class_balance(synthetic_df):
     _, _, y_train, y_test = prepare_claim_probability_data(add_features(synthetic_df))
     assert abs(y_train.mean() - y_test.mean()) < 0.01
+
+
+def test_splits_keep_each_policy_on_one_side(synthetic_df):
+    featured = add_features(synthetic_df)
+    for splitter in (split_claim_severity_data, split_claim_probability_data):
+        X_train, X_test, y_train, y_test, groups_train, groups_test = splitter(featured)
+        assert set(groups_train).isdisjoint(groups_test)
+        assert len(groups_train) == len(X_train) == len(y_train)
+        assert len(groups_test) == len(X_test) == len(y_test)
+
+
+def test_split_without_policy_ids_falls_back_to_row_split(synthetic_df):
+    featured = add_features(synthetic_df).drop(columns=['PolicyID'])
+    severity = split_claim_severity_data(featured)
+    probability = split_claim_probability_data(featured)
+    assert severity[4] is None and probability[5] is None
+    assert abs(probability[2].mean() - probability[3].mean()) < 0.01

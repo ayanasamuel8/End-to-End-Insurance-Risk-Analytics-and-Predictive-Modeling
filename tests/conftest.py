@@ -19,6 +19,7 @@ def ci_params(tmp_path, synthetic_df):
     with open(ROOT / 'params.ci.yaml', encoding='utf-8') as handle:
         params = yaml.safe_load(handle)
     params['paths'] = {
+        'raw_data': str(tmp_path / 'raw_data.txt'),
         'cleaned_data': str(tmp_path / 'cleaned_data.csv'),
         'processed_dir': str(tmp_path / 'processed'),
         'models_dir': str(tmp_path / 'models'),

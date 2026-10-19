@@ -35,7 +35,7 @@ tests/
 
 | File | Checks |
 |------|--------|
-| `test_pipeline/test_pipeline.py` | Runs `prepare`, `train` and `evaluate` on generated data. Confirms that a second run produces byte-identical processed data, models, metrics and SHAP tables. Confirms that each metric gate fires. Confirms that `dvc.yaml` points at real modules and `params.yaml` keys. |
+| `test_pipeline/test_pipeline.py` | Runs `clean`, `prepare`, `train` and `evaluate` on generated data. Confirms that claim amounts survive cleaning and that no policy sits on both sides of the split. Confirms that a second run produces byte-identical processed data, models, metrics and SHAP tables. Confirms that each metric gate fires. Confirms that `dvc.yaml` points at real modules and `params.yaml` keys. |
 | `test_task_4/test_data_processing.py` | Date expansion, encoding that ignores row order, no claim-derived columns in the claim probability data, reproducible splits. |
 | `test_task_4/test_feature_engineering.py` | Exact feature values, case-insensitive `TermFrequency`, input left unchanged. |
 | `test_task_4/test_model_training.py` | Candidate models, cross-validated selection, claim probability models. |

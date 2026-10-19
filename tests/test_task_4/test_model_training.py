@@ -100,3 +100,16 @@ def test_fit_claim_probability_models(ci_params, synthetic_df):
     for model in models.values():
         probabilities = model.predict_proba(X_test)[:, 1]
         assert ((probabilities >= 0) & (probabilities <= 1)).all()
+
+
+def test_folds_keep_each_group_together(ci_params, synthetic_df):
+    from src.task_4.data_processing import split_claim_severity_data
+    from src.task_4.feature_engineering import add_features
+    from src.task_4.model_training import fit_severity_models, make_folds
+
+    X_train, _, y_train, _, groups, _ = split_claim_severity_data(add_features(synthetic_df))
+    for fit_rows, check_rows in make_folds(3, 42, groups).split(X_train, y_train, groups):
+        assert set(groups.iloc[fit_rows]).isdisjoint(groups.iloc[check_rows])
+
+    models, cv_rmse, _ = fit_severity_models(X_train, y_train, ci_params['severity'], seed=42, groups=groups)
+    assert set(models) == set(cv_rmse)

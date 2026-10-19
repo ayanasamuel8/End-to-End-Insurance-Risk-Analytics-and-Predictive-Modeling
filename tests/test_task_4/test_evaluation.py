@@ -32,7 +32,9 @@ def test_classification_metrics_for_perfect_scores():
             return np.column_stack([1 - positive, positive])
 
     metrics = classification_metrics(Perfect(), X, y)
-    assert metrics == {'accuracy': 1.0, 'precision': 1.0, 'recall': 1.0, 'f1': 1.0, 'roc_auc': 1.0}
+    assert metrics == {
+        'accuracy': 1.0, 'precision': 1.0, 'recall': 1.0, 'f1': 1.0, 'roc_auc': 1.0, 'average_precision': 1.0
+    }
 
 
 def test_classification_metrics_with_no_positive_predictions():
@@ -43,6 +45,7 @@ def test_classification_metrics_with_no_positive_predictions():
     assert metrics['precision'] == 0.0
     assert metrics['recall'] == 0.0
     assert metrics['roc_auc'] == 0.5
+    assert metrics['average_precision'] == 0.5
 
 
 def test_rmse_reduction_pct():

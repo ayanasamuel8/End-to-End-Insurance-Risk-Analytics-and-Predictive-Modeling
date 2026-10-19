@@ -6,13 +6,14 @@ import pandas as pd
 import pytest
 import yaml
 
-from src.pipeline import check_metrics, evaluate, prepare, synthetic, train
+from src.pipeline import check_metrics, clean, evaluate, prepare, synthetic, train
 from src.pipeline.params import load_params, parse_args, read_json, set_seed, write_json
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def run_pipeline(params):
+    clean.clean(params)
     prepare.prepare(params)
     train.train(params)
     evaluate.evaluate(params)
@@ -27,12 +28,13 @@ def finished_run(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp('run')
     params = load_params(str(ROOT / 'params.ci.yaml'))
     params['paths'] = {
+        'raw_data': str(tmp_path / 'raw_data.txt'),
         'cleaned_data': str(tmp_path / 'cleaned_data.csv'),
         'processed_dir': str(tmp_path / 'processed'),
         'models_dir': str(tmp_path / 'models'),
         'reports_dir': str(tmp_path / 'reports'),
     }
-    synthetic.make_cleaned_data(2500, seed=11).to_csv(params['paths']['cleaned_data'], index=False)
+    synthetic.make_raw_data(2500, seed=11).to_csv(params['paths']['raw_data'], index=False, sep='|')
     run_pipeline(params)
     return params
 
@@ -67,19 +69,37 @@ def test_claim_probability_does_not_use_the_claim_amount(finished_run):
     assert metrics['claim_probability']['test']['xgboost']['accuracy'] < 0.999
 
 
+def test_cleaning_keeps_real_claim_amounts_and_marks_claims(finished_run):
+    raw = pd.read_csv(finished_run['paths']['raw_data'], sep='|')
+    cleaned = pd.read_csv(finished_run['paths']['cleaned_data'])
+    assert len(cleaned) == len(raw) - 1  # the generated raw file ends with one duplicate row
+    assert (cleaned['claim_indicator'] == (cleaned['TotalClaims'] > 0)).all()
+    assert (cleaned['TotalClaims'] > 0).sum() == (raw['TotalClaims'] > 0).sum()
+    assert cleaned['TotalClaims'].max() == raw['TotalClaims'].max()
+
+
+def test_no_policy_appears_in_both_train_and_test(finished_run):
+    folder = Path(finished_run['paths']['processed_dir'])
+    for name in ('severity', 'claim_probability'):
+        train_policies = set(pd.read_parquet(folder / f'{name}_train.parquet')['PolicyID'])
+        test_policies = set(pd.read_parquet(folder / f'{name}_test.parquet')['PolicyID'])
+        assert train_policies.isdisjoint(test_policies), name
+
+
 def test_train_and_test_rows_do_not_overlap(finished_run):
     folder = Path(finished_run['paths']['processed_dir'])
     train_rows = pd.read_parquet(folder / 'severity_train.parquet')
     test_rows = pd.read_parquet(folder / 'severity_test.parquet')
     selection = read_json(Path(finished_run['paths']['reports_dir']) / 'model_selection.json')
     assert selection['severity']['train_rows'] == len(train_rows)
-    assert len(test_rows) == pytest.approx(0.25 * len(train_rows), rel=0.02)
+    assert len(test_rows) == pytest.approx(0.25 * len(train_rows), rel=0.5)
 
 
 def test_rerun_gives_identical_outputs(finished_run, tmp_path):
     """Running the stages again from the same input must reproduce every file byte for byte."""
     second = {**finished_run, 'paths': {
         **finished_run['paths'],
+        'cleaned_data': str(tmp_path / 'cleaned_data.csv'),
         'processed_dir': str(tmp_path / 'processed'),
         'models_dir': str(tmp_path / 'models'),
         'reports_dir': str(tmp_path / 'reports'),
@@ -87,6 +107,7 @@ def test_rerun_gives_identical_outputs(finished_run, tmp_path):
     run_pipeline(second)
 
     compared = [
+        ('cleaned_data', None),
         ('processed_dir', 'severity_train.parquet'),
         ('processed_dir', 'severity_test.parquet'),
         ('processed_dir', 'claim_probability_train.parquet'),
@@ -99,7 +120,10 @@ def test_rerun_gives_identical_outputs(finished_run, tmp_path):
         ('reports_dir', 'shap_claim_probability.csv'),
     ]
     for folder, name in compared:
-        assert digest(Path(finished_run['paths'][folder]) / name) == digest(Path(second['paths'][folder]) / name), name
+        first_path, second_path = Path(finished_run['paths'][folder]), Path(second['paths'][folder])
+        if name:
+            first_path, second_path = first_path / name, second_path / name
+        assert digest(first_path) == digest(second_path), name
 
 
 def test_latency_is_reported_for_both_models(finished_run):
@@ -149,7 +173,8 @@ def test_check_metrics_exit_codes(finished_run, tmp_path):
 def test_stage_entry_points_read_the_params_file(tmp_path):
     params = load_params(str(ROOT / 'params.ci.yaml'))
     params['paths'] = {
-        'cleaned_data': str(tmp_path / 'in' / 'cleaned_data.csv'),
+        'raw_data': str(tmp_path / 'in' / 'raw_data.txt'),
+        'cleaned_data': str(tmp_path / 'cleaned_data.csv'),
         'processed_dir': str(tmp_path / 'processed'),
         'models_dir': str(tmp_path / 'models'),
         'reports_dir': str(tmp_path / 'reports'),
@@ -158,7 +183,8 @@ def test_stage_entry_points_read_the_params_file(tmp_path):
     params_path = tmp_path / 'params.yaml'
     params_path.write_text(yaml.safe_dump(params))
 
-    synthetic.main(['--out', params['paths']['cleaned_data'], '--rows', '1200', '--seed', '5'])
+    synthetic.main(['--out', params['paths']['raw_data'], '--rows', '1200', '--seed', '5'])
+    clean.main(['--params', str(params_path)])
     prepare.main(['--params', str(params_path)])
     train.main(['--params', str(params_path)])
     evaluate.main(['--params', str(params_path)])
@@ -182,7 +208,7 @@ def test_params_helpers(tmp_path):
 def test_dvc_stages_point_at_real_modules_and_params():
     pipeline = yaml.safe_load((ROOT / 'dvc.yaml').read_text())
     params = load_params(str(ROOT / 'params.yaml'))
-    assert list(pipeline['stages']) == ['prepare', 'train', 'evaluate']
+    assert list(pipeline['stages']) == ['clean', 'prepare', 'train', 'evaluate']
     for stage in pipeline['stages'].values():
         module = stage['cmd'].split()[-1]
         assert (ROOT / (module.replace('.', '/') + '.py')).exists()
