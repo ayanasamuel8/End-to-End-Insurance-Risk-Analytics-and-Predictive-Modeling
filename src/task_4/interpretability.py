@@ -3,10 +3,11 @@ import lime.lime_tabular
 import numpy as np
 import pandas as pd
 
+
 def explain_model_with_lime(model, X_train, X_test, feature_names, instance_idx=0, mode='regression'):
     """
     Explain the prediction of a single instance using LIME.
-    
+
     Parameters:
     - model: trained model (regressor or classifier)
     - X_train: training features as DataFrame or numpy array (for LIME background distribution)
@@ -14,7 +15,7 @@ def explain_model_with_lime(model, X_train, X_test, feature_names, instance_idx=
     - feature_names: list of feature names (columns)
     - instance_idx: index of the test instance to explain
     - mode: 'regression' or 'classification'
-    
+
     Returns:
     - explanation object from LIME (can be used to display or save explanations)
     """
@@ -22,12 +23,12 @@ def explain_model_with_lime(model, X_train, X_test, feature_names, instance_idx=
         training_data = X_train.values
     else:
         training_data = X_train
-        
+
     if isinstance(X_test, pd.DataFrame):
         test_data = X_test.values
     else:
         test_data = X_test
-        
+
     # Setup the LIME explainer for tabular data
     explainer = lime.lime_tabular.LimeTabularExplainer(
         training_data,
@@ -35,17 +36,17 @@ def explain_model_with_lime(model, X_train, X_test, feature_names, instance_idx=
         mode=mode,
         discretize_continuous=True
     )
-    
+
     # Select one instance to explain
     instance = test_data[instance_idx]
-    
+
     # Get explanation
     explanation = explainer.explain_instance(
-        instance, 
+        instance,
         model.predict,
         num_features=10  # top 10 features in explanation
     )
-    
+
     return explanation
 
 def show_lime_explanation(explanation):
@@ -55,3 +56,34 @@ def show_lime_explanation(explanation):
     print("Feature contributions to prediction:")
     for feature, weight in explanation.as_list():
         print(f"{feature}: {weight:.4f}")
+
+
+def shap_importance(model, X, sample_size: int = 2000, seed: int = 42) -> pd.DataFrame:
+    """
+    Mean absolute SHAP value per feature, largest first.
+
+    Tree models use the tree explainer. Linear models, including a scaler plus
+    logistic regression pipeline, use the linear explainer on the scaled data.
+    """
+    import shap
+
+    sample = X.sample(n=min(sample_size, len(X)), random_state=seed)
+    estimator = model
+    data = sample
+    if hasattr(model, 'named_steps'):
+        steps = list(model.named_steps.values())
+        estimator = steps[-1]
+        data = pd.DataFrame(steps[0].transform(sample), columns=sample.columns, index=sample.index)
+
+    if hasattr(estimator, 'coef_'):
+        explainer = shap.LinearExplainer(estimator, data)
+    else:
+        explainer = shap.TreeExplainer(estimator)
+    values = np.asarray(explainer.shap_values(data))
+    if values.ndim == 3:
+        values = values[..., -1]
+    importance = pd.DataFrame({
+        'feature': list(X.columns),
+        'mean_abs_shap': np.abs(values).mean(axis=0),
+    })
+    return importance.sort_values(['mean_abs_shap', 'feature'], ascending=[False, True]).reset_index(drop=True)

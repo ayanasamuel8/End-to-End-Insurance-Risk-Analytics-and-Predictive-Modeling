@@ -1,99 +1,95 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-# from src.preprocessing.cleaning import clean_data
-from src.task_4.feature_engineering import add_features  # you defined this earlier
+
+SEVERITY_TARGET = 'TotalClaims'
+PROBABILITY_TARGET = 'claim_indicator'
+
+# Identifiers carry no pricing signal. ClaimRatio is derived from the claim amount.
+SEVERITY_DROP = ['UnderwrittenCoverID', 'PolicyID', 'claim_indicator', 'ClaimRatio']
+# TotalClaims decides claim_indicator, so keeping it would leak the answer.
+PROBABILITY_DROP = ['UnderwrittenCoverID', 'PolicyID', 'TotalClaims', 'ClaimRatio']
+
+MISSING_TOKEN = '___missing___'
+DATE_PATTERN = r'^\d{4}-\d{2}-\d{2}'
+
 
 def encode_categoricals(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Label encode all categorical columns, safely handling NaNs and type issues.
+    Replace every text or categorical column with integer codes.
+
+    Codes follow the sorted order of the distinct values, so the result does not
+    depend on row order. Missing values get their own code.
     """
     df_encoded = df.copy()
-    cat_cols = df_encoded.select_dtypes(include=['object', 'category']).columns
-
-    for col in cat_cols:
-        # If NaNs exist, temporarily fill with placeholder
-        if df_encoded[col].isnull().any():
-            df_encoded[col] = df_encoded[col].fillna('___missing___')
-
-        try:
-            le = LabelEncoder()
-            df_encoded[col] = le.fit_transform(df_encoded[col].astype(str))
-        except (ValueError, TypeError):
-            # Fallback for very dirty columns
-            df_encoded[col] = df_encoded[col].astype('category').cat.codes
-
+    for col in df_encoded.select_dtypes(include=['object', 'category']).columns:
+        values = df_encoded[col].astype(object).where(df_encoded[col].notna(), MISSING_TOKEN).astype(str)
+        df_encoded[col] = pd.Categorical(values, categories=sorted(values.unique())).codes
+    for col in df_encoded.select_dtypes(include=['bool']).columns:
+        df_encoded[col] = df_encoded[col].astype(int)
     return df_encoded
 
+
+def _is_text(series: pd.Series) -> bool:
+    return pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series)
+
+
 def is_date_column(series: pd.Series) -> bool:
-    try:
-        parsed = pd.to_datetime(series, errors='coerce')
-        non_null_ratio = parsed.notna().mean()
-        return non_null_ratio > 0.9  # 90%+ of values must be valid dates
-    except:
+    """True when at least 90% of the values start with an ISO date (YYYY-MM-DD)."""
+    if not _is_text(series):
         return False
+    values = series.dropna().astype(str)
+    if values.empty:
+        return False
+    return values.str.match(DATE_PATTERN).mean() > 0.9
 
 
+def expand_date_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Replace each ISO date text column with ``<col>_year`` and ``<col>_month``."""
+    df = df.copy()
+    for col in [c for c in df.columns if is_date_column(df[c])]:
+        parsed = pd.to_datetime(df[col], errors='coerce')
+        df[f'{col}_year'] = parsed.dt.year
+        df[f'{col}_month'] = parsed.dt.month
+        df = df.drop(columns=[col])
+    return df
 
 
-def prepare_claim_severity_data(df):
-    target = 'TotalClaims'
-    drop_cols = ['UnderwrittenCoverID', 'PolicyID', 'claim_indicator']
+def drop_empty_columns(df: pd.DataFrame) -> pd.DataFrame:
+    return df.dropna(axis=1, how='all')
 
-    # Filter only likely date columns
-    date_cols = [col for col in df.columns if df[col].dtype == 'object' and is_date_column(df[col])]
 
-    # Convert and extract
-    for col in date_cols:
-        df[col] = pd.to_datetime(df[col], errors='coerce')
-        df[f'{col}_year'] = df[col].dt.year
-        df[f'{col}_month'] = df[col].dt.month
-        df.drop(columns=[col], inplace=True)
-
-    for col in date_cols:
-        if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors='coerce')
-            df[f'{col}_year'] = df[col].dt.year
-            df[f'{col}_month'] = df[col].dt.month
-            df.drop(columns=[col], inplace=True)
-
-    # Keep only positive-claim rows
-    df = df[df[target] > 0]
-
-    # Encode categoricals
+def build_severity_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Rows with a positive claim, numeric features, and the target column."""
+    df = drop_empty_columns(expand_date_columns(df))
+    df = df[df[SEVERITY_TARGET] > 0]
     df = encode_categoricals(df)
-
-    # Drop unnecessary columns
-    df = df.drop(columns=drop_cols)
+    return df.drop(columns=[c for c in SEVERITY_DROP if c in df.columns])
 
 
-
-    X = df.drop(columns=[target])
-    y = df[target]
-
-    return train_test_split(X, y, test_size=0.2, random_state=42)
-
-
-
-
-
-def prepare_claim_probability_data(df: pd.DataFrame) -> tuple:
-    """
-    Load, clean, engineer, encode, and split the data for claim probability classification.
-    Assumes a `claim_indicator` column exists (boolean or binary 0/1).
-    """
-
-    # Ensure claim_indicator is binary (0/1)
-    if df['claim_indicator'].dtype == 'bool':
-        df['claim_indicator'] = df['claim_indicator'].astype(int)
-    elif df['claim_indicator'].nunique() == 2 and sorted(df['claim_indicator'].unique()) == [False, True]:
-        df['claim_indicator'] = df['claim_indicator'].map({False: 0, True: 1})
-
+def build_probability_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """All rows, numeric features without claim-derived columns, and the 0/1 target."""
+    df = df.copy()
+    if PROBABILITY_TARGET not in df.columns:
+        df[PROBABILITY_TARGET] = df[SEVERITY_TARGET] > 0
+    df[PROBABILITY_TARGET] = df[PROBABILITY_TARGET].astype(int)
+    df = drop_empty_columns(expand_date_columns(df))
     df = encode_categoricals(df)
-    df = df.dropna()
+    df = df.drop(columns=[c for c in PROBABILITY_DROP if c in df.columns])
+    return df.dropna()
 
-    X = df.drop(columns=['claim_indicator'])
-    y = df['claim_indicator']
 
-    return train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+def prepare_claim_severity_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
+    """Split positive-claim rows into train and test sets for severity regression."""
+    frame = build_severity_frame(df)
+    X = frame.drop(columns=[SEVERITY_TARGET])
+    y = frame[SEVERITY_TARGET]
+    return train_test_split(X, y, test_size=test_size, random_state=random_state)
+
+
+def prepare_claim_probability_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
+    """Split all rows into stratified train and test sets for claim classification."""
+    frame = build_probability_frame(df)
+    X = frame.drop(columns=[PROBABILITY_TARGET])
+    y = frame[PROBABILITY_TARGET]
+    return train_test_split(X, y, test_size=test_size, stratify=y, random_state=random_state)
 
