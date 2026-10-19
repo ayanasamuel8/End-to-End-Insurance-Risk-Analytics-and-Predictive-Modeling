@@ -64,7 +64,9 @@ The `notebooks/` directory serves as the primary space for:
 ### 📁 `task_4/06_model_training_and_interpretability.ipynb`
 - Modeled both claim severity (regression) and probability (classification)
 - Trained Linear, RF, XGBoost models with performance metrics
-- Used SHAP and LIME to interpret model decisions and explain pricing
+- Used LIME to interpret model decisions and explain pricing
+- Saved outputs come from an earlier run of this notebook. The claim probability scores of 1.0 in those outputs came from `TotalClaims` being an input feature, which `src/task_4/data_processing.py` no longer allows. Re-run the notebook for current scores.
+- For tuned models, SHAP tables and metrics that DVC tracks, run `dvc repro` (see the project README) and read `reports/`.
 
 
 ---

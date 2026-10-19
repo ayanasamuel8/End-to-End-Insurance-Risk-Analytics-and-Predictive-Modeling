@@ -12,7 +12,7 @@ This directory contains all core logic and modular components used in data proce
 | `config.py` | Central location for storing global configuration variables (paths, constants, toggles). |
 | `data_loader.py` | Contains utilities for loading raw and processed datasets. |
 | `preprocessing.py` | High-level preprocessing functions for cleaning and transforming data. |
-| `README.md` | This file – documentation of the codebase structure. |
+| `README.md` | This file, documentation of the codebase structure. |
 
 ---
 
@@ -49,35 +49,59 @@ This directory contains all core logic and modular components used in data proce
 
 | File | Description |
 |------|-------------|
-| `data_processing.py` | Handles encoding, normalization, splitting for modeling. |
-| `feature_engineering.py` | Creates new predictive features such as vehicle age, conversion flags, etc. |
-| `model_training.py` | Core training logic for regression and classification models (XGBoost, Random Forest, etc.). |
-| `interpretability.py` | Generates SHAP & LIME explanations to interpret model decisions. |
+| `feature_engineering.py` | `add_features`: vehicle age, power per cylinder, monthly premium and related features. Returns a copy of its input. |
+| `data_processing.py` | Date expansion, integer encoding of categories, removal of identifier and claim-derived columns, and the train/test splits for both tasks. |
+| `model_training.py` | Severity candidates, XGBoost randomized search, cross-validated model selection, and the claim probability models. Also holds `train_and_compare_models`, the quick three-model comparison used by the notebook. |
+| `evaluation.py` | RMSE, R², classification metrics, RMSE reduction and batch latency measurement. |
+| `interpretability.py` | `shap_importance` (mean absolute SHAP per feature) and LIME helpers. |
+
+---
+
+## 🔁 `pipeline/` — DVC Stages
+
+| File | Description |
+|------|-------------|
+| `params.py` | Reads `params.yaml`, seeds random generators, reads and writes JSON. |
+| `prepare.py` | Stage `prepare`: cleaned CSV to train and test Parquet files. |
+| `train.py` | Stage `train`: fits and selects the models, writes `models/` and `reports/model_selection.json`. |
+| `evaluate.py` | Stage `evaluate`: test metrics, latency and SHAP tables. |
+| `check_metrics.py` | Compares the reports with the `gates` in `params.yaml` and exits with an error on a violation. |
+| `synthetic.py` | Generates deterministic stand-in data with the same columns, for CI and tests. |
+
+Each stage takes `--params <file>` (default `params.yaml`).
 
 ---
 
 ## ✅ Usage Example
 
 ```python
-from src.data_loader import load_clean_data
-from src.task_1.eda.univariate import summarize_numerics
-from src.task_4.model_training import train_xgboost_model
-from src.task_4.interpretability import explain_with_shap
+import pandas as pd
 
-# Load and analyze data
-df = load_clean_data("data/processed/cleaned_data.csv")
-summarize_numerics(df)
+from src.task_4.data_processing import prepare_claim_severity_data
+from src.task_4.feature_engineering import add_features
+from src.task_4.interpretability import shap_importance
+from src.task_4.model_training import fit_severity_models, select_best_model
+from src.pipeline.params import load_params
 
-# Train and explain model
-model, X_test = train_xgboost_model(df)
-explain_with_shap(model, X_test)
+params = load_params("params.yaml")
+df = add_features(pd.read_csv("data/cleaned/cleaned_data.csv"))
+X_train, X_test, y_train, y_test = prepare_claim_severity_data(df, random_state=params["seed"])
+
+models, cv_rmse, _ = fit_severity_models(X_train, y_train, params["severity"], params["seed"])
+best = select_best_model(cv_rmse)
+print(shap_importance(models[best], X_test).head())
 ```
-🧩 Design Philosophy
-Modular: Code is separated into logically coherent, reusable units.
 
-Interpretable: Business-facing logic (e.g., hypothesis results) is separated from statistical code.
+To run the full pipeline instead, use `dvc repro`.
 
-Scalable: Easy to extend for future tasks like time-series modeling or real-time pricing engines.
+---
 
-📝 Note
-Ensure all module imports use relative paths (from .module import ...) if running as a package, or adjust PYTHONPATH accordingly for standalone script runs.
+## 🧩 Design Philosophy
+
+- **Modular**: code is separated into small, reusable units.
+- **Interpretable**: business-facing logic (such as hypothesis results) is separate from statistical code.
+- **Parameter driven**: pipeline code takes its values from `params.yaml` and holds no hidden constants.
+
+## 📝 Note
+
+Run commands from the repository root so that `from src... import ...` resolves. In notebooks, add the repository root to `sys.path`.
