@@ -2,11 +2,9 @@ import pandas as pd
 
 
 def load_data(path: str) -> pd.DataFrame:
-    return pd.read_csv(path, sep='|',
-    skipinitialspace=False,
-    engine='python',
-    skiprows=0
-    )
+    return pd.read_csv(path, sep='|', low_memory=False)
+
+
 def load_raw_data(path: str) -> pd.DataFrame:
     return pd.read_csv(path, low_memory=False)
 

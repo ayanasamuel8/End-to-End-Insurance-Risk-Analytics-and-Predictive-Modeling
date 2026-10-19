@@ -1,4 +1,4 @@
-"""Deterministic stand-in for the cleaned claims data, used by CI and tests."""
+"""Deterministic stand-in for the claims data, used by CI and tests."""
 import argparse
 from pathlib import Path
 
@@ -64,15 +64,25 @@ def make_cleaned_data(n_rows: int = 4000, seed: int = 42) -> pd.DataFrame:
     )
 
 
+def make_raw_data(n_rows: int = 4000, seed: int = 42) -> pd.DataFrame:
+    """Like ``make_cleaned_data`` but shaped like the raw file: mixed case, a few gaps, a duplicate row."""
+    df = make_cleaned_data(n_rows, seed).drop(columns=['claim_indicator'])
+    for column in ('Gender', 'Province', 'Bank'):
+        df[column] = df[column].str.title()
+    df['TermFrequency'] = df['TermFrequency'].str.title()
+    df.loc[df.index[::97], 'CustomValueEstimate'] = np.nan
+    return pd.concat([df, df.iloc[[0]]], ignore_index=True)
+
+
 def main(argv=None) -> None:
-    parser = argparse.ArgumentParser(description="Write generated cleaned data to disk.")
+    parser = argparse.ArgumentParser(description="Write generated raw data (pipe separated) to disk.")
     parser.add_argument("--out", required=True)
     parser.add_argument("--rows", type=int, default=4000)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args(argv)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    make_cleaned_data(args.rows, args.seed).to_csv(out, index=False)
+    make_raw_data(args.rows, args.seed).to_csv(out, index=False, sep='|')
 
 
 if __name__ == "__main__":

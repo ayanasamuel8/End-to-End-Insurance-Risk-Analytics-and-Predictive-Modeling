@@ -2,6 +2,7 @@
 seed: 42
 
 paths:
+  raw_data: data/synthetic/raw_data.txt
   cleaned_data: data/synthetic/cleaned_data.csv
   processed_dir: data/synthetic/processed
   models_dir: data/synthetic/models
@@ -23,6 +24,7 @@ severity:
   search:
     n_iter: 6
     space:
+      objective: [reg:squarederror, reg:gamma]
       n_estimators: [100, 200]
       learning_rate: [0.05, 0.1]
       max_depth: [2, 3, 4]

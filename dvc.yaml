@@ -1,4 +1,18 @@
 stages:
+  clean:
+    cmd: python -m src.pipeline.clean
+    deps:
+      - data/raw/MachineLearningRating_v3.txt
+      - src/pipeline/clean.py
+      - src/pipeline/params.py
+      - src/data_loader.py
+      - src/preprocessing.py
+    params:
+      - paths.raw_data
+      - paths.cleaned_data
+    outs:
+      - data/cleaned/cleaned_data.csv
+
   prepare:
     cmd: python -m src.pipeline.prepare
     deps:

@@ -1,11 +1,12 @@
 .venv/
 __pycache__/
 .ipynb_checkpoints/
-data/*
-!data/.gitkeep
+/data/*
+!/data/.gitkeep
+!/data/*/
+/data/*/*
+!/data/*/*.dvc
 !.dvc
-!data/raw/raw_data.csv.dvc
-!data/cleaned/cleaned_data.csv.dvc
 /models/
 .coverage
 .pytest_cache/

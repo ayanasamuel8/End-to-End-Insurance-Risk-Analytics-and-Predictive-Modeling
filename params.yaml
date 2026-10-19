@@ -3,6 +3,7 @@
 seed: 42
 
 paths:
+  raw_data: data/raw/MachineLearningRating_v3.txt
   cleaned_data: data/cleaned/cleaned_data.csv
   processed_dir: data/processed
   models_dir: models
@@ -22,8 +23,9 @@ severity:
     n_estimators: 100
     learning_rate: 0.1
   search:
-    n_iter: 20
+    n_iter: 60
     space:
+      objective: [reg:squarederror, reg:gamma, reg:tweedie]
       n_estimators: [100, 200, 300]
       learning_rate: [0.02, 0.05, 0.1]
       max_depth: [2, 3, 4, 6]
