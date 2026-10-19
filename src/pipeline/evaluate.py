@@ -23,7 +23,7 @@ def evaluate(params: dict) -> None:
     latency = params['evaluate']['latency']
 
     bundle = joblib.load(models_dir / 'severity.joblib')
-    _, _, X_test, y_test = load_split(processed_dir, 'severity', SEVERITY_TARGET)
+    _, _, _, X_test, y_test = load_split(processed_dir, 'severity', SEVERITY_TARGET)
     X_test = X_test[bundle['features']]
     severity_scores = {name: regression_metrics(model, X_test, y_test) for name, model in bundle['models'].items()}
     tuned_rmse = severity_scores['xgboost_tuned']['rmse']
@@ -31,7 +31,7 @@ def evaluate(params: dict) -> None:
     best_model = bundle['models'][bundle['best']]
 
     classifier_bundle = joblib.load(models_dir / 'claim_probability.joblib')
-    _, _, Xc_test, yc_test = load_split(processed_dir, 'claim_probability', PROBABILITY_TARGET)
+    _, _, _, Xc_test, yc_test = load_split(processed_dir, 'claim_probability', PROBABILITY_TARGET)
     Xc_test = Xc_test[classifier_bundle['features']]
     classifier_scores = {
         name: classification_metrics(model, Xc_test, yc_test) for name, model in classifier_bundle['models'].items()

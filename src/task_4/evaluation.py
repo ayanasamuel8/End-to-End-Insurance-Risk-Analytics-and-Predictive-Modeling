@@ -3,6 +3,7 @@ import time
 import numpy as np
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
     f1_score,
     mean_squared_error,
     precision_score,
@@ -22,12 +23,14 @@ def regression_metrics(model, X, y) -> dict:
 
 def classification_metrics(model, X, y) -> dict:
     predictions = model.predict(X)
+    probabilities = model.predict_proba(X)[:, 1]
     return {
         'accuracy': float(accuracy_score(y, predictions)),
         'precision': float(precision_score(y, predictions, zero_division=0)),
         'recall': float(recall_score(y, predictions, zero_division=0)),
         'f1': float(f1_score(y, predictions, zero_division=0)),
-        'roc_auc': float(roc_auc_score(y, model.predict_proba(X)[:, 1])),
+        'roc_auc': float(roc_auc_score(y, probabilities)),
+        'average_precision': float(average_precision_score(y, probabilities)),
     }
 
 

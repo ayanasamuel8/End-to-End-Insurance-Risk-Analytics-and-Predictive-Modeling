@@ -1,13 +1,16 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold, train_test_split
 
 SEVERITY_TARGET = 'TotalClaims'
 PROBABILITY_TARGET = 'claim_indicator'
 
+# A policy appears in many rows. Rows of one policy always land on the same side of a split.
+GROUP_COLUMN = 'PolicyID'
+
 # Identifiers carry no pricing signal. ClaimRatio is derived from the claim amount.
-SEVERITY_DROP = ['UnderwrittenCoverID', 'PolicyID', 'claim_indicator', 'ClaimRatio']
+SEVERITY_DROP = ['UnderwrittenCoverID', 'claim_indicator', 'ClaimRatio']
 # TotalClaims decides claim_indicator, so keeping it would leak the answer.
-PROBABILITY_DROP = ['UnderwrittenCoverID', 'PolicyID', 'TotalClaims', 'ClaimRatio']
+PROBABILITY_DROP = ['UnderwrittenCoverID', 'TotalClaims', 'ClaimRatio']
 
 MISSING_TOKEN = '___missing___'
 DATE_PATTERN = r'^\d{4}-\d{2}-\d{2}'
@@ -78,18 +81,52 @@ def build_probability_frame(df: pd.DataFrame) -> pd.DataFrame:
     return df.dropna()
 
 
+def _split(frame: pd.DataFrame, target: str, test_size: float, random_state: int, stratify: bool):
+    """
+    Split ``frame`` into train and test parts.
+
+    When the frame has a ``PolicyID`` column, all rows of a policy go to the same
+    side. Returns X_train, X_test, y_train, y_test, groups_train, groups_test
+    (the group lists are None when there is no ``PolicyID``).
+    """
+    y = frame[target]
+    if GROUP_COLUMN not in frame.columns:
+        X = frame.drop(columns=[target])
+        strata = y if stratify else None
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, stratify=strata, random_state=random_state
+        )
+        return X_train, X_test, y_train, y_test, None, None
+
+    groups = frame[GROUP_COLUMN]
+    X = frame.drop(columns=[target, GROUP_COLUMN])
+    if stratify:
+        splitter = StratifiedGroupKFold(n_splits=round(1 / test_size), shuffle=True, random_state=random_state)
+        train_idx, test_idx = next(splitter.split(X, y, groups))
+    else:
+        splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+        train_idx, test_idx = next(splitter.split(X, y, groups))
+    return (
+        X.iloc[train_idx], X.iloc[test_idx], y.iloc[train_idx], y.iloc[test_idx],
+        groups.iloc[train_idx], groups.iloc[test_idx],
+    )
+
+
+def split_claim_severity_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
+    """Positive-claim rows split by policy. Returns the 6-part result of ``_split``."""
+    return _split(build_severity_frame(df), SEVERITY_TARGET, test_size, random_state, stratify=False)
+
+
+def split_claim_probability_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
+    """All rows split by policy with similar claim rates on both sides."""
+    return _split(build_probability_frame(df), PROBABILITY_TARGET, test_size, random_state, stratify=True)
+
+
 def prepare_claim_severity_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
     """Split positive-claim rows into train and test sets for severity regression."""
-    frame = build_severity_frame(df)
-    X = frame.drop(columns=[SEVERITY_TARGET])
-    y = frame[SEVERITY_TARGET]
-    return train_test_split(X, y, test_size=test_size, random_state=random_state)
+    return split_claim_severity_data(df, test_size, random_state)[:4]
 
 
 def prepare_claim_probability_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
-    """Split all rows into stratified train and test sets for claim classification."""
-    frame = build_probability_frame(df)
-    X = frame.drop(columns=[PROBABILITY_TARGET])
-    y = frame[PROBABILITY_TARGET]
-    return train_test_split(X, y, test_size=test_size, stratify=y, random_state=random_state)
-
+    """Split all rows into train and test sets for claim classification."""
+    return split_claim_probability_data(df, test_size, random_state)[:4]

@@ -5,10 +5,11 @@ import pandas as pd
 
 from src.pipeline.params import ensure_dir, load_params, parse_args
 from src.task_4.data_processing import (
+    GROUP_COLUMN,
     PROBABILITY_TARGET,
     SEVERITY_TARGET,
-    prepare_claim_probability_data,
-    prepare_claim_severity_data,
+    split_claim_probability_data,
+    split_claim_severity_data,
 )
 from src.task_4.feature_engineering import add_features
 
@@ -21,15 +22,17 @@ def prepare(params: dict) -> None:
     featured = add_features(cleaned, reference_year=settings['reference_year'])
 
     splits = {
-        'severity': (prepare_claim_severity_data, SEVERITY_TARGET),
-        'claim_probability': (prepare_claim_probability_data, PROBABILITY_TARGET),
+        'severity': (split_claim_severity_data, SEVERITY_TARGET),
+        'claim_probability': (split_claim_probability_data, PROBABILITY_TARGET),
     }
     for name, (builder, target) in splits.items():
-        X_train, X_test, y_train, y_test = builder(
+        X_train, X_test, y_train, y_test, g_train, g_test = builder(
             featured, test_size=settings['test_size'], random_state=params['seed']
         )
-        X_train.assign(**{target: y_train}).reset_index(drop=True).to_parquet(Path(out_dir) / f'{name}_train.parquet')
-        X_test.assign(**{target: y_test}).reset_index(drop=True).to_parquet(Path(out_dir) / f'{name}_test.parquet')
+        for part, X, y, groups in (('train', X_train, y_train, g_train), ('test', X_test, y_test, g_test)):
+            X.assign(**{target: y, GROUP_COLUMN: groups}).reset_index(drop=True).to_parquet(
+                Path(out_dir) / f'{name}_{part}.parquet'
+            )
 
 
 def main(argv=None) -> None:

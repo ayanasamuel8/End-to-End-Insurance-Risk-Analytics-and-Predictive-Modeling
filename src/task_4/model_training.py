@@ -3,7 +3,7 @@ from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import KFold, RandomizedSearchCV, cross_val_score
+from sklearn.model_selection import GroupKFold, KFold, RandomizedSearchCV, cross_val_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier, XGBRegressor
@@ -58,35 +58,44 @@ def build_severity_models(params: dict, seed: int) -> dict:
     }
 
 
-def tune_xgboost(X_train, y_train, params: dict, seed: int) -> RandomizedSearchCV:
+def make_folds(n_splits: int, seed: int, groups=None):
+    """Folds that keep every group (policy) inside one fold when groups are given."""
+    if groups is None:
+        return KFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    return GroupKFold(n_splits=n_splits)
+
+
+def tune_xgboost(X_train, y_train, params: dict, seed: int, groups=None) -> RandomizedSearchCV:
     """Randomized search over the XGBoost space, scored by cross-validated RMSE."""
     search = RandomizedSearchCV(
         XGBRegressor(random_state=seed, n_jobs=params['n_jobs']),
         param_distributions=params['search']['space'],
         n_iter=params['search']['n_iter'],
         scoring='neg_root_mean_squared_error',
-        cv=KFold(n_splits=params['cv_folds'], shuffle=True, random_state=seed),
+        cv=make_folds(params['cv_folds'], seed, groups),
         random_state=seed,
         refit=True,
     )
-    return search.fit(X_train, y_train)
+    return search.fit(X_train, y_train, groups=groups)
 
 
-def fit_severity_models(X_train, y_train, params: dict, seed: int):
+def fit_severity_models(X_train, y_train, params: dict, seed: int, groups=None):
     """
     Fit every severity candidate and the tuned XGBoost model.
 
     Returns the fitted models, each model's cross-validated RMSE on the training
     data, and the winning XGBoost hyperparameters.
     """
-    folds = KFold(n_splits=params['cv_folds'], shuffle=True, random_state=seed)
+    folds = make_folds(params['cv_folds'], seed, groups)
     models, cv_rmse = {}, {}
     for name, model in build_severity_models(params, seed).items():
-        scores = cross_val_score(model, X_train, y_train, cv=folds, scoring='neg_root_mean_squared_error')
+        scores = cross_val_score(
+            model, X_train, y_train, cv=folds, groups=groups, scoring='neg_root_mean_squared_error'
+        )
         cv_rmse[name] = float(-scores.mean())
         models[name] = model.fit(X_train, y_train)
 
-    search = tune_xgboost(X_train, y_train, params, seed)
+    search = tune_xgboost(X_train, y_train, params, seed, groups)
     models['xgboost_tuned'] = search.best_estimator_
     cv_rmse['xgboost_tuned'] = float(-search.best_score_)
     return models, cv_rmse, dict(search.best_params_)
