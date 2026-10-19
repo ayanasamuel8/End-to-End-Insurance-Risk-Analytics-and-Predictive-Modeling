@@ -1,0 +1,23 @@
+{
+  "severity": {
+    "cv_rmse": {
+      "linear_regression": 32833.92758386646,
+      "mean_baseline": 38760.891976755454,
+      "random_forest": 32690.80546210962,
+      "xgboost_default": 35239.414708313074,
+      "xgboost_tuned": 32515.21885254457
+    },
+    "selected_model": "xgboost_tuned",
+    "train_rows": 2220,
+    "xgboost_tuned_params": {
+      "colsample_bytree": 0.8,
+      "learning_rate": 0.02,
+      "max_depth": 4,
+      "min_child_weight": 20,
+      "n_estimators": 100,
+      "objective": "reg:squarederror",
+      "reg_lambda": 1,
+      "subsample": 0.8
+    }
+  }
+}

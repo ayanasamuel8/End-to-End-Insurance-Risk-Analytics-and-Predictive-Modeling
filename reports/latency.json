@@ -1,0 +1,16 @@
+{
+  "claim_probability_xgboost": {
+    "batch_ms_median": 9.702500000457803,
+    "batch_ms_p95": 11.001041699364578,
+    "batch_size": 1000,
+    "per_row_us_median": 9.702500000457803,
+    "repeats": 30
+  },
+  "severity_xgboost_tuned": {
+    "batch_ms_median": 5.076284999631753,
+    "batch_ms_p95": 6.345110100210149,
+    "batch_size": 568,
+    "per_row_us_median": 8.937121478224917,
+    "repeats": 30
+  }
+}

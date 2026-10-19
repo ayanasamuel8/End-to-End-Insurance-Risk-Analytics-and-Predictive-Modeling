@@ -1,0 +1,62 @@
+{
+  "claim_probability": {
+    "test": {
+      "logistic_regression": {
+        "accuracy": 0.9972152645498678,
+        "average_precision": 0.02133047837715376,
+        "f1": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "roc_auc": 0.8724403879829921
+      },
+      "xgboost": {
+        "accuracy": 0.9972152645498678,
+        "average_precision": 0.027052306525727866,
+        "f1": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "roc_auc": 0.9335367974681337
+      }
+    },
+    "test_rows": 200019
+  },
+  "severity": {
+    "cv_rmse": {
+      "linear_regression": 32833.92758386646,
+      "mean_baseline": 38760.891976755454,
+      "random_forest": 32690.80546210962,
+      "xgboost_default": 35239.414708313074,
+      "xgboost_tuned": 32515.21885254457
+    },
+    "selected_model": "xgboost_tuned",
+    "test": {
+      "linear_regression": {
+        "r2": 0.16684005303216032,
+        "rmse": 34742.67048133272
+      },
+      "mean_baseline": {
+        "r2": -0.0038110433471598704,
+        "rmse": 38135.1088239909
+      },
+      "random_forest": {
+        "r2": 0.25194508999265697,
+        "rmse": 32920.448580659904
+      },
+      "xgboost_default": {
+        "r2": 0.07936958927857818,
+        "rmse": 36520.91616677415
+      },
+      "xgboost_tuned": {
+        "r2": 0.23737822484159432,
+        "rmse": 33239.43294217911
+      }
+    },
+    "test_rows": 568,
+    "xgboost_tuned_rmse_reduction_pct": {
+      "linear_regression": 4.326776031685022,
+      "mean_baseline": 12.837713154057937,
+      "random_forest": -0.9689550880136075,
+      "xgboost_default": 8.985216059777965
+    }
+  }
+}

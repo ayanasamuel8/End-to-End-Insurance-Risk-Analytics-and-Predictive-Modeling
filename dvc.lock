@@ -1,0 +1,219 @@
+schema: '2.0'
+stages:
+  clean:
+    cmd: python -m src.pipeline.clean
+    deps:
+    - path: data/raw/MachineLearningRating_v3.txt
+      hash: md5
+      md5: f6b7009b68ae21372b7deca9307fbb23
+      size: 529363713
+    - path: src/data_loader.py
+      hash: md5
+      md5: 2e599936889aed23711b0c7a192cb833
+      size: 849
+    - path: src/pipeline/clean.py
+      hash: md5
+      md5: 3cdffa04c544f46330bf16d082ceec02
+      size: 660
+    - path: src/pipeline/params.py
+      hash: md5
+      md5: 61c87ed5f9c91c1cf69568f491d9a97e
+      size: 1114
+    - path: src/preprocessing.py
+      hash: md5
+      md5: fb9f94abd3768cbf954664c9057e84cb
+      size: 3077
+    params:
+      params.yaml:
+        paths.cleaned_data: data/cleaned/cleaned_data.csv
+        paths.raw_data: data/raw/MachineLearningRating_v3.txt
+    outs:
+    - path: data/cleaned/cleaned_data.csv
+      hash: md5
+      md5: 71bbbf36c838b2493f470cb830f386d0
+      size: 481820768
+  prepare:
+    cmd: python -m src.pipeline.prepare
+    deps:
+    - path: data/cleaned/cleaned_data.csv
+      hash: md5
+      md5: 71bbbf36c838b2493f470cb830f386d0
+      size: 481820768
+    - path: src/pipeline/params.py
+      hash: md5
+      md5: 61c87ed5f9c91c1cf69568f491d9a97e
+      size: 1114
+    - path: src/pipeline/prepare.py
+      hash: md5
+      md5: 910045abc6dece0a1a7535e7509c4dda
+      size: 1512
+    - path: src/task_4/data_processing.py
+      hash: md5
+      md5: ee22af069820db9e6968214ebe223f32
+      size: 5688
+    - path: src/task_4/feature_engineering.py
+      hash: md5
+      md5: 850ad62f2434f0beb29f1cd45c25f366
+      size: 1071
+    params:
+      params.yaml:
+        paths.cleaned_data: data/cleaned/cleaned_data.csv
+        paths.processed_dir: data/processed
+        prepare:
+          test_size: 0.2
+          reference_year: 2025
+        seed: 42
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: 2d2ecbd27f295c345901a89ba6bce785.dir
+      size: 11534484
+      nfiles: 4
+  train:
+    cmd: python -m src.pipeline.train
+    deps:
+    - path: data/processed
+      hash: md5
+      md5: 2d2ecbd27f295c345901a89ba6bce785.dir
+      size: 11534484
+      nfiles: 4
+    - path: src/pipeline/params.py
+      hash: md5
+      md5: 61c87ed5f9c91c1cf69568f491d9a97e
+      size: 1114
+    - path: src/pipeline/train.py
+      hash: md5
+      md5: a81858214be5503d5616312fd9aec33b
+      size: 2233
+    - path: src/task_4/model_training.py
+      hash: md5
+      md5: 53a1577fd9ca4a4f8f07014f803de157
+      size: 4985
+    params:
+      params.yaml:
+        claim_probability:
+          n_jobs: 1
+          logistic_regression:
+            max_iter: 1000
+          xgboost:
+            n_estimators: 500
+            learning_rate: 0.05
+            max_depth: 6
+        paths.models_dir: models
+        paths.processed_dir: data/processed
+        paths.reports_dir: reports
+        seed: 42
+        severity:
+          cv_folds: 3
+          n_jobs: 1
+          random_forest:
+            n_estimators: 100
+            min_samples_leaf: 20
+          xgboost_default:
+            n_estimators: 100
+            learning_rate: 0.1
+          search:
+            n_iter: 60
+            space:
+              objective:
+              - reg:squarederror
+              - reg:gamma
+              - reg:tweedie
+              n_estimators:
+              - 100
+              - 200
+              - 300
+              learning_rate:
+              - 0.02
+              - 0.05
+              - 0.1
+              max_depth:
+              - 2
+              - 3
+              - 4
+              - 6
+              min_child_weight:
+              - 1
+              - 5
+              - 20
+              - 50
+              subsample:
+              - 0.6
+              - 0.8
+              - 1.0
+              colsample_bytree:
+              - 0.6
+              - 0.8
+              - 1.0
+              reg_lambda:
+              - 1
+              - 10
+              - 50
+              - 100
+    outs:
+    - path: models
+      hash: md5
+      md5: 3b799be85e4b78c8a3f8ffe25e4ccb68.dir
+      size: 2716130
+      nfiles: 2
+    - path: reports/model_selection.json
+      hash: md5
+      md5: 432d046bdd171d1c9c0cae0ddc12bc35
+      size: 588
+  evaluate:
+    cmd: python -m src.pipeline.evaluate
+    deps:
+    - path: data/processed
+      hash: md5
+      md5: 2d2ecbd27f295c345901a89ba6bce785.dir
+      size: 11534484
+      nfiles: 4
+    - path: models
+      hash: md5
+      md5: 3b799be85e4b78c8a3f8ffe25e4ccb68.dir
+      size: 2716130
+      nfiles: 2
+    - path: reports/model_selection.json
+      hash: md5
+      md5: 432d046bdd171d1c9c0cae0ddc12bc35
+      size: 588
+    - path: src/pipeline/evaluate.py
+      hash: md5
+      md5: e4b56922c822ab664237caeadd4f1492
+      size: 3327
+    - path: src/task_4/evaluation.py
+      hash: md5
+      md5: 37c27ed6abfedff2c6a753cb31934739
+      size: 2065
+    - path: src/task_4/interpretability.py
+      hash: md5
+      md5: b2ba32032681b2cdee5ca41eae6c4ad8
+      size: 2892
+    params:
+      params.yaml:
+        evaluate:
+          shap_sample_size: 2000
+          latency:
+            batch_size: 1000
+            repeats: 30
+        paths.models_dir: models
+        paths.processed_dir: data/processed
+        paths.reports_dir: reports
+        seed: 42
+    outs:
+    - path: reports/latency.json
+      hash: md5
+      md5: 59b7840a9b14c76c782be7977518def7
+      size: 410
+    - path: reports/metrics.json
+      hash: md5
+      md5: 99677ed3ad230bc2cc08b1506a2be5e5
+      size: 1629
+    - path: reports/shap_claim_probability.csv
+      hash: md5
+      md5: 7e34db41cdd7bdedd5ab5b35142c9017
+      size: 1130
+    - path: reports/shap_severity.csv
+      hash: md5
+      md5: 662a4be54182893e4f72567720ad4e6e
+      size: 1051
