@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+
+
 def plot_top_bottom_claims(df, group_col, value_col, top_n=5):
     grouped = df.groupby(group_col)[value_col].mean().sort_values()
     top = grouped.tail(top_n)

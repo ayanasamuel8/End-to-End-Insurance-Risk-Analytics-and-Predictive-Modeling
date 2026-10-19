@@ -1,8 +1,10 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import os
-from src.data_loader import extract_numeric_cols, extract_categorical_cols, extract_date_time_cols
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+
+from src.data_loader import extract_categorical_cols, extract_date_time_cols, extract_numeric_cols
 
 sns.set(style='whitegrid', palette='muted')
 
@@ -42,7 +44,12 @@ def analyze_numeric_features(df: pd.DataFrame, save_fig: bool = False, fig_path:
 
 
 # ---- Categorical Features ----
-def analyze_categorical_features(df: pd.DataFrame, top_n: int = 10, save_fig: bool = False, fig_path: str = "outputs/univariate/categorical/"):
+def analyze_categorical_features(
+    df: pd.DataFrame,
+    top_n: int = 10,
+    save_fig: bool = False,
+    fig_path: str = "outputs/univariate/categorical/",
+):
     cat_cols = extract_categorical_cols(df)
     results = {}
 

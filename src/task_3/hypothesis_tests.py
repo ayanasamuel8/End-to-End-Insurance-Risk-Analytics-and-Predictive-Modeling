@@ -1,20 +1,22 @@
 import numpy as np
-import pandas as pd
-from src.task_3.stats_helpers import anova_test, t_test_independent, chi_square_test
+
+from src.task_3.stats_helpers import anova_test, t_test_independent
+
+
 def province_risk_test(data, risk_metric='claim_frequency'):
     """
     Compare risk across provinces using the specified risk metric.
-    
+
     For claim frequency: Calculate the proportion of policies with at least one claim.
     For claim severity: Consider only policies with at least one claim and compute their average.
     Use ANOVA to compare differences across provinces.
-    
+
     Returns a dictionary with test statistics and p-values.
     """
     results = {}
     provinces = data['Province'].unique()
     groups = []
-    
+
     if risk_metric == 'claim_frequency':
         for province in provinces:
             subset = data[data['Province'] == province]
@@ -30,7 +32,7 @@ def province_risk_test(data, risk_metric='claim_frequency'):
             results[province] = {'claim_severity': severity}
     else:
         raise ValueError("Invalid risk metric specified.")
-    
+
     stat, p_val = anova_test(groups)
     return {'results_by_province': results, 'anova_stat': stat, 'p_value': p_val}
 

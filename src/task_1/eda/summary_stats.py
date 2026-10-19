@@ -1,4 +1,6 @@
 import pandas as pd
+
+
 def describe_numerical(df: pd.DataFrame):
     return df.describe()
 

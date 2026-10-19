@@ -1,6 +1,7 @@
+import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
+
 
 def correlation_matrix(df):
     corr = df.corr(numeric_only=True)

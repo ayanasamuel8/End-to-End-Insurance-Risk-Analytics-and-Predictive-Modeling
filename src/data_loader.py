@@ -1,10 +1,11 @@
 import pandas as pd
 
+
 def load_data(path: str) -> pd.DataFrame:
     return pd.read_csv(path, sep='|',
     skipinitialspace=False,
     engine='python',
-    skiprows=0 
+    skiprows=0
     )
 def load_raw_data(path: str) -> pd.DataFrame:
     return pd.read_csv(path, low_memory=False)
@@ -12,8 +13,8 @@ def load_raw_data(path: str) -> pd.DataFrame:
 def check_structure(df: pd.DataFrame):
     return df.info(), df.dtypes
 
-def save_raw_data(df: pd.DataFrame):
-    df.to_csv('../../data/raw/raw_data.csv', index=False)
+def save_raw_data(df: pd.DataFrame, path: str = '../../data/raw/raw_data.csv'):
+    df.to_csv(path, index=False)
 
 def check_missing(df: pd.DataFrame):
     return df.isnull().sum()

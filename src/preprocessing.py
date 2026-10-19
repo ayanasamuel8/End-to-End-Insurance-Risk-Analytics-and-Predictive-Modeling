@@ -1,7 +1,13 @@
-import pandas as pd
+from pathlib import Path
+
 import numpy as np
-from scipy import stats
-from src.data_loader import extract_numeric_cols, extract_categorical_cols, extract_date_time_cols
+import pandas as pd
+
+from src.data_loader import extract_categorical_cols, extract_date_time_cols, extract_numeric_cols
+
+
+def _is_text(series: pd.Series) -> bool:
+    return pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series)
 
 
 def clean_numeric_strings(df: pd.DataFrame, cols: list) -> pd.DataFrame:
@@ -9,7 +15,7 @@ def clean_numeric_strings(df: pd.DataFrame, cols: list) -> pd.DataFrame:
     Convert string-formatted numbers with commas to proper floats.
     """
     for col in cols:
-        if df[col].dtype == 'object':
+        if _is_text(df[col]):
             df[col] = df[col].str.replace(',', '', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
     return df
@@ -24,16 +30,14 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
       - Clean numeric strings (e.g., "1,000").
       - Cap numerical outliers between 1st and 99th percentile.
       - Convert datetime columns.
-    
+
     Returns the cleaned DataFrame.
     """
     # 1. Remove Duplicate Rows
     df_clean = df.drop_duplicates().copy()
-    print(print(df['TotalClaims'].value_counts()))
 
     # 2. Handle Numeric Columns
     num_cols = extract_numeric_cols(df_clean)
-    print('TotalClaims' in num_cols)
     for col in num_cols:
         median_val = df_clean[col].median()
         df_clean[col] = df_clean[col].fillna(median_val)
@@ -56,11 +60,9 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     # 4. Clean Numeric Strings
     numeric_string_cols = [
         col for col in df_clean.columns
-        if df_clean[col].dtype == 'object' and df_clean[col].str.contains(',', na=False).any()
+        if _is_text(df_clean[col]) and df_clean[col].str.contains(',', na=False).any()
     ]
     df_clean = clean_numeric_strings(df_clean, numeric_string_cols)
-    print('after string clean:')
-    print(print(df['TotalClaims'].value_counts()))
 
     # 5. Cap Outliers to 1st and 99th percentiles
     for col in num_cols:
@@ -72,7 +74,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     date_time_cols = extract_date_time_cols(df_clean)
     for col in date_time_cols:
         df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
-    
+
     df_clean = df_clean.dropna(thresh=len(df) * 0.2, axis=1)
     # df_clean.drop_duplicates(inplace=True)
 
@@ -81,5 +83,5 @@ def save_cleaned_data(df: pd.DataFrame, file_path: str = '../../data/cleaned/cle
     """
     Save the cleaned DataFrame to a CSV file.
     """
+    Path(file_path).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(file_path, index=False)
-    print(f"Cleaned data saved to {file_path}")

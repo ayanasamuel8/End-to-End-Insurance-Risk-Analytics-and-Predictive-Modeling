@@ -1,5 +1,6 @@
-from scipy.stats import ttest_ind, chi2_contingency, f_oneway
 import pandas as pd
+from scipy.stats import chi2_contingency, f_oneway, ttest_ind
+
 
 def t_test_independent(group_a, group_b):
     return ttest_ind(group_a.dropna(), group_b.dropna(), equal_var=False)
