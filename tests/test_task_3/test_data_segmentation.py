@@ -1,5 +1,7 @@
 import pandas as pd
+
 from src.task_3.data_segmentation import segment_data
+
 
 def test_segment_data():
     df = pd.DataFrame({

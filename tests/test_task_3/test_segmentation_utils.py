@@ -1,5 +1,12 @@
 import pandas as pd
-from src.task_3.segmentation_utils import calculate_claim_frequency, calculate_claim_severity, calculate_margin, get_groups_by_feature
+
+from src.task_3.segmentation_utils import (
+    calculate_claim_frequency,
+    calculate_claim_severity,
+    calculate_margin,
+    get_groups_by_feature,
+)
+
 
 def test_claim_frequency():
     df = pd.DataFrame({'claim_indicator': [1, 0, 1, 1]})

@@ -1,5 +1,5 @@
-import pytest
 from src.task_3.business_analysis import interpret_test_result
+
 
 def test_interpret_test_result_reject():
     msg = interpret_test_result("Province Risk", 0.01, "Higher risk observed in Gauteng.")

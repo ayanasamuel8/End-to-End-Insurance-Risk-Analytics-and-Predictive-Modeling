@@ -1,9 +1,10 @@
 import os
+
 import pandas as pd
 import pytest
-from joblib import load
-from src.task_4.model_training import train_and_compare_models
+
 from src.task_4.data_processing import prepare_claim_severity_data
+from src.task_4.model_training import train_and_compare_models
 
 # Create a small dummy CSV for testing
 dummy_csv_path = 'test_dummy_data.csv'
@@ -56,3 +57,46 @@ def test_train_and_compare_models_runs():
     for key, (rmse, r2) in results.items():
         assert isinstance(rmse, float)
         assert isinstance(r2, float)
+
+
+def test_fit_severity_models_selects_by_cross_validation(ci_params, synthetic_df):
+    from src.task_4.data_processing import prepare_claim_severity_data
+    from src.task_4.feature_engineering import add_features
+    from src.task_4.model_training import fit_severity_models, select_best_model
+
+    X_train, X_test, y_train, _ = prepare_claim_severity_data(add_features(synthetic_df))
+    models, cv_rmse, best_params = fit_severity_models(X_train, y_train, ci_params['severity'], seed=42)
+
+    assert set(models) == {'mean_baseline', 'linear_regression', 'random_forest', 'xgboost_default', 'xgboost_tuned'}
+    assert set(cv_rmse) == set(models)
+    assert set(best_params) == set(ci_params['severity']['search']['space'])
+    assert select_best_model(cv_rmse) == min(
+        (name for name in cv_rmse if name != 'mean_baseline'), key=cv_rmse.get
+    )
+    assert all(model.predict(X_test).shape == (len(X_test),) for model in models.values())
+
+
+def test_select_best_model_breaks_ties_by_name():
+    from src.task_4.model_training import select_best_model
+
+    assert select_best_model({'b': 1.0, 'a': 1.0, 'c': 2.0}) == 'a'
+
+
+def test_select_best_model_never_picks_the_mean_baseline():
+    from src.task_4.model_training import select_best_model
+
+    assert select_best_model({'mean_baseline': 1.0, 'xgboost_tuned': 2.0}) == 'xgboost_tuned'
+
+
+def test_fit_claim_probability_models(ci_params, synthetic_df):
+    from src.task_4.data_processing import prepare_claim_probability_data
+    from src.task_4.feature_engineering import add_features
+    from src.task_4.model_training import fit_claim_probability_models
+
+    X_train, X_test, y_train, _ = prepare_claim_probability_data(add_features(synthetic_df))
+    models = fit_claim_probability_models(X_train, y_train, ci_params['claim_probability'], seed=42)
+
+    assert set(models) == {'logistic_regression', 'xgboost'}
+    for model in models.values():
+        probabilities = model.predict_proba(X_test)[:, 1]
+        assert ((probabilities >= 0) & (probabilities <= 1)).all()
