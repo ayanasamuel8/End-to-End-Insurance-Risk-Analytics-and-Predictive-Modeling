@@ -42,7 +42,7 @@ This project develops an explainable, risk-aware pricing model for auto insuranc
 ├── .dvc/                      # DVC configuration (local remote)
 ├── .github/workflows/ci.yml   # Lint, tests, pipeline run, metric gates
 ├── data/
-│   └── cleaned/               # cleaned_data.csv, tracked by DVC (cleaned_data.csv.dvc)
+│   └── raw/                   # MachineLearningRating_v3.txt, tracked by DVC (.dvc file)
 ├── notebooks/                 # EDA, hypothesis testing and modeling notebooks
 ├── reports/                   # Metrics and SHAP tables written by the pipeline
 ├── src/
@@ -81,13 +81,15 @@ To run the notebooks, also install `requirements-notebooks.txt`.
 
 ## 🔁 Reproducing the Results
 
-The pipeline reads `data/cleaned/cleaned_data.csv`, which DVC tracks by checksum.
+The pipeline starts from the raw file `data/raw/MachineLearningRating_v3.txt` (about 1,000,000 rows, 52 columns, pipe separated), which DVC tracks by checksum. The 10 Academy challenge supplies it as `MachineLearningRating_v3.zip`.
 
 ```bash
-dvc pull      # fetch the data from the configured remote
+dvc pull      # fetch the raw data from the configured remote
 dvc repro     # run only the stages whose inputs, code or parameters changed
 dvc metrics show
 ```
+
+If the remote has no copy, unzip the challenge file into `data/raw/` and run `dvc repro`. DVC checks the file against the checksum in `data/raw/MachineLearningRating_v3.txt.dvc`.
 
 The remote in `.dvc/config` is a folder on the author's machine (`~/dvc_storage`). To use another location, run `dvc remote modify localstorage url <path-or-url>`.
 
@@ -95,6 +97,7 @@ The remote in `.dvc/config` is a folder on the author's machine (`~/dvc_storage`
 
 | Stage      | Command                           | Reads                             | Writes                                                      |
 |------------|-----------------------------------|-----------------------------------|-------------------------------------------------------------|
+| `clean`    | `python -m src.pipeline.clean`    | raw data                          | `data/cleaned/cleaned_data.csv`                             |
 | `prepare`  | `python -m src.pipeline.prepare`  | cleaned data, `params.yaml`       | `data/processed/` (train and test Parquet files)            |
 | `train`    | `python -m src.pipeline.train`    | `data/processed/`                 | `models/`, `reports/model_selection.json`                   |
 | `evaluate` | `python -m src.pipeline.evaluate` | `data/processed/`, `models/`      | `reports/metrics.json`, `reports/latency.json`, SHAP tables |
@@ -106,6 +109,7 @@ The remote in `.dvc/config` is a folder on the author's machine (`~/dvc_storage`
 - Dependency versions are pinned in `requirements.txt` and the Python version is in `.python-version`.
 - Every random choice (data split, cross-validation folds, hyperparameter search, model seeds) uses `seed` from `params.yaml`.
 - Every value that affects a result is declared in `params.yaml`, so DVC reruns exactly the stages that depend on a changed value.
+- Cleaning uses no random numbers. Claim amounts are never altered: a row has a claim only if the raw file says so.
 - Categorical codes depend on the sorted category values, not on row order.
 - A test runs the three stages twice and requires byte-identical processed data, models, metrics and SHAP tables.
 
@@ -118,7 +122,9 @@ The remote in `.dvc/config` is a folder on the author's machine (`~/dvc_storage`
 | Claim severity      | Mean baseline, linear regression, random forest, default XGBoost, tuned XGBoost  | Lowest cross-validated RMSE on the training set |
 | Claim probability   | Logistic regression, XGBoost                                                     | XGBoost                                         |
 
-The tuned XGBoost model comes from a randomized search over the space in `params.yaml` (`severity.search`). The mean baseline is reported for comparison and is never selected.
+The tuned XGBoost model comes from a randomized search over the space in `params.yaml` (`severity.search`), which includes the squared-error, gamma and Tweedie objectives. The mean baseline is reported for comparison and is never selected.
+
+Rows are grouped by `PolicyID`. All rows of a policy fall on the same side of the train/test split and inside the same cross-validation fold, so a model is never scored on a policy it has seen.
 
 ### Reading the results
 
@@ -126,7 +132,7 @@ The tuned XGBoost model comes from a randomized search over the space in `params
 
 - RMSE and R² for every severity model, plus the cross-validated RMSE used for selection.
 - `xgboost_tuned_rmse_reduction_pct`: the percentage drop in RMSE of the tuned model against each other severity model.
-- Accuracy, precision, recall, F1 and ROC AUC for both claim probability models.
+- Accuracy, precision, recall, F1, ROC AUC and average precision for both claim probability models. Only about 0.28% of rows have a claim, so accuracy is near 100% for any model. Read ROC AUC and average precision instead (a model with no skill scores an average precision equal to the claim rate).
 
 `reports/latency.json` holds the median and 95th percentile time to score one batch (`evaluate.latency.batch_size` rows) and the median time per row. `reports/shap_severity.csv` and `reports/shap_claim_probability.csv` list the mean absolute SHAP value of each feature.
 
@@ -161,7 +167,8 @@ Run the same checks locally:
 ```bash
 ruff check .
 pytest
-python -m src.pipeline.synthetic --out data/synthetic/cleaned_data.csv
+python -m src.pipeline.synthetic --out data/synthetic/raw_data.txt
+python -m src.pipeline.clean --params params.ci.yaml
 python -m src.pipeline.prepare --params params.ci.yaml
 python -m src.pipeline.train --params params.ci.yaml
 python -m src.pipeline.evaluate --params params.ci.yaml
@@ -169,6 +176,30 @@ python -m src.pipeline.check_metrics --params params.ci.yaml
 ```
 
 The generated data in `src/pipeline/synthetic.py` only exercises the code. Its metrics say nothing about real insurance data.
+
+---
+
+## 🧮 Latest Results
+
+From the committed run (`dvc.lock`, `reports/`), on the held-out policies. Rerun `dvc repro` to refresh them.
+
+**Data:** 1,000,098 rows, 2,788 of them with a claim (1,408 policies).
+
+**Claim severity** (568 test rows, so treat the RMSE as noisy):
+
+| Model             | Cross-validated RMSE | Test RMSE |
+|-------------------|----------------------|-----------|
+| Mean baseline     | 38,761               | 38,135    |
+| Linear regression | 32,834               | 34,743    |
+| Random forest     | 32,691               | 32,920    |
+| XGBoost, default  | 35,239               | 36,521    |
+| XGBoost, tuned    | 32,515               | 33,239    |
+
+Tuned XGBoost cuts test RMSE by 9.0% against default XGBoost, 4.3% against linear regression and 12.8% against the mean baseline. Random forest is 1.0% better than tuned XGBoost on the test rows, though tuned XGBoost has the lower cross-validated RMSE and is the selected model.
+
+**Claim probability** (200,019 test rows): XGBoost reaches ROC AUC 0.934 and average precision 0.027, against 0.872 and 0.021 for logistic regression. At the default 0.5 cut-off neither model predicts a claim, so precision, recall and F1 are 0. Use the predicted probability, not the label.
+
+**Batch scoring time**, median over 30 runs on the author's machine: 5.1 ms for 568 severity rows and 9.7 ms for 1,000 claim probability rows.
 
 ---
 
@@ -203,6 +234,7 @@ The generated data in `src/pipeline/synthetic.py` only exercises the code. Its m
 
 #### Data handling rules
 
+- The raw claim amounts are used as they are. Only 2,788 rows have a claim, and the severity models train on those rows alone.
 - The claim probability model never sees `TotalClaims` or `ClaimRatio`, because both are computed from the outcome being predicted.
 - Identifier columns (`UnderwrittenCoverID`, `PolicyID`) are dropped from both models.
 - Date text columns become year and month features.
@@ -226,7 +258,7 @@ These come from the linear-model coefficients and LIME explanations in `notebook
 
 ## 📓 Notebooks
 
-The notebooks in `notebooks/` are exploratory. `notebooks/task_4/` uses `train_and_compare_models`, a quick comparison of three untuned models, and does not use the pipeline. Its saved outputs are an earlier run and do not match `reports/metrics.json`. See `notebooks/README.md`.
+The notebooks in `notebooks/` are exploratory. Notebook `05_hypothesis_testing.ipynb` no longer replaces zero claims with the median claim amount, but its saved outputs were produced with that replacement and are out of date. `notebooks/task_4/` uses `train_and_compare_models`, a quick comparison of three untuned models, and does not use the pipeline. Its saved outputs are an earlier run and do not match `reports/metrics.json`. See `notebooks/README.md`.
 
 ---
 

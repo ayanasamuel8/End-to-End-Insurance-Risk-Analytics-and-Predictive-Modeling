@@ -62,11 +62,12 @@ This directory contains all core logic and modular components used in data proce
 | File | Description |
 |------|-------------|
 | `params.py` | Reads `params.yaml`, seeds random generators, reads and writes JSON. |
-| `prepare.py` | Stage `prepare`: cleaned CSV to train and test Parquet files. |
+| `clean.py` | Stage `clean`: raw pipe-separated file to `cleaned_data.csv`, with a `claim_indicator` column. |
+| `prepare.py` | Stage `prepare`: cleaned CSV to train and test Parquet files, split by policy. |
 | `train.py` | Stage `train`: fits and selects the models, writes `models/` and `reports/model_selection.json`. |
 | `evaluate.py` | Stage `evaluate`: test metrics, latency and SHAP tables. |
 | `check_metrics.py` | Compares the reports with the `gates` in `params.yaml` and exits with an error on a violation. |
-| `synthetic.py` | Generates deterministic stand-in data with the same columns, for CI and tests. |
+| `synthetic.py` | Generates deterministic stand-in raw data with similar columns, for CI and tests. |
 
 Each stage takes `--params <file>` (default `params.yaml`).
 
@@ -77,7 +78,7 @@ Each stage takes `--params <file>` (default `params.yaml`).
 ```python
 import pandas as pd
 
-from src.task_4.data_processing import prepare_claim_severity_data
+from src.task_4.data_processing import split_claim_severity_data
 from src.task_4.feature_engineering import add_features
 from src.task_4.interpretability import shap_importance
 from src.task_4.model_training import fit_severity_models, select_best_model
@@ -85,9 +86,9 @@ from src.pipeline.params import load_params
 
 params = load_params("params.yaml")
 df = add_features(pd.read_csv("data/cleaned/cleaned_data.csv"))
-X_train, X_test, y_train, y_test = prepare_claim_severity_data(df, random_state=params["seed"])
+X_train, X_test, y_train, y_test, groups, _ = split_claim_severity_data(df, random_state=params["seed"])
 
-models, cv_rmse, _ = fit_severity_models(X_train, y_train, params["severity"], params["seed"])
+models, cv_rmse, _ = fit_severity_models(X_train, y_train, params["severity"], params["seed"], groups)
 best = select_best_model(cv_rmse)
 print(shap_importance(models[best], X_test).head())
 ```

@@ -59,6 +59,7 @@ The `notebooks/` directory serves as the primary space for:
 ### 📁 `task_3/05_hypthesis_testing.ipynb`
 - Statistically tested hypotheses on claim risk factors
 - Methods: z-test, t-test, chi-squared
+- The saved outputs were produced after 20% of zero-claim rows had been overwritten with the median claim amount. That step has been removed from the notebook, so its test results and the earlier `cleaned_data.csv` no longer reflect the raw data. Re-run the notebook for current results.
 - Provided business insights on regional and demographic effects
 
 ### 📁 `task_4/06_model_training_and_interpretability.ipynb`

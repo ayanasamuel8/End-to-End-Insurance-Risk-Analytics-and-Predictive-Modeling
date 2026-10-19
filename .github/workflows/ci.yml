@@ -34,7 +34,8 @@ jobs:
 
       - name: Run pipeline on generated data
         run: |
-          python -m src.pipeline.synthetic --out data/synthetic/cleaned_data.csv
+          python -m src.pipeline.synthetic --out data/synthetic/raw_data.txt
+          python -m src.pipeline.clean --params params.ci.yaml
           python -m src.pipeline.prepare --params params.ci.yaml
           python -m src.pipeline.train --params params.ci.yaml
           python -m src.pipeline.evaluate --params params.ci.yaml
