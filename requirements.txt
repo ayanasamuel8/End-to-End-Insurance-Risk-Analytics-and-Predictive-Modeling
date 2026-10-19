@@ -1,27 +1,25 @@
-# Core
-pandas
-numpy
-matplotlib
-seaborn
-scikit-learn
-scipy
-statsmodels
-xgboost
+# Pinned versions for Python 3.13 (see .python-version).
 
-# EDA & Plotting
-plotly
-missingno
-sweetviz
+# Data and modeling
+numpy==2.5.4
+pandas==3.0.6
+pyarrow==26.0.0
+scipy==1.18.1
+scikit-learn==1.9.1
+xgboost-cpu==3.4.1
+joblib==1.6.0
+pyyaml==6.0.3
 
-# Model interpretation
-shap
-lime
+# Interpretability
+shap==0.54.1
+lime==0.2.0.1
 
-# Dev & CI
-dvc
-pytest
+# Plotting
+matplotlib==3.11.2
+seaborn==0.13.2
 
-# Notebook and tooling
-jupyter
-ipykernel
-notebook
+# Pipeline and quality checks
+dvc==3.67.1
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.17.1

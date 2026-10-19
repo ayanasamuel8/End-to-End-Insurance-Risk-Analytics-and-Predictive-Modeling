@@ -1,0 +1,9 @@
+# Extra packages used only by the exploratory notebooks.
+-r requirements.txt
+statsmodels
+plotly
+missingno
+sweetviz
+jupyter
+ipykernel
+notebook
