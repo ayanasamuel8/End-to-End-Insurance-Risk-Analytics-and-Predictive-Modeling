@@ -1,0 +1,54 @@
+# Single source of truth for every tunable value in the DVC pipeline.
+# Changing a value here invalidates only the stages that read it.
+seed: 42
+
+paths:
+  cleaned_data: data/cleaned/cleaned_data.csv
+  processed_dir: data/processed
+  models_dir: models
+  reports_dir: reports
+
+prepare:
+  test_size: 0.2
+  reference_year: 2025
+
+severity:
+  cv_folds: 3
+  n_jobs: 1
+  random_forest:
+    n_estimators: 100
+    min_samples_leaf: 20
+  xgboost_default:
+    n_estimators: 100
+    learning_rate: 0.1
+  search:
+    n_iter: 20
+    space:
+      n_estimators: [100, 200, 300]
+      learning_rate: [0.02, 0.05, 0.1]
+      max_depth: [2, 3, 4, 6]
+      min_child_weight: [1, 5, 20, 50]
+      subsample: [0.6, 0.8, 1.0]
+      colsample_bytree: [0.6, 0.8, 1.0]
+      reg_lambda: [1, 10, 50, 100]
+
+claim_probability:
+  n_jobs: 1
+  logistic_regression:
+    max_iter: 1000
+  xgboost:
+    n_estimators: 500
+    learning_rate: 0.05
+    max_depth: 6
+
+evaluate:
+  shap_sample_size: 2000
+  latency:
+    batch_size: 1000
+    repeats: 30
+
+# Limits enforced by `python -m src.pipeline.check_metrics`.
+gates:
+  max_batch_latency_ms: 15
+  min_rmse_reduction_vs_xgboost_default_pct: 0
+  min_claim_probability_roc_auc: 0.5

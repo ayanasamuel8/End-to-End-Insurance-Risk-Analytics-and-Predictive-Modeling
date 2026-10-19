@@ -1,0 +1,52 @@
+# Small configuration that runs the whole pipeline on generated data in CI.
+seed: 42
+
+paths:
+  cleaned_data: data/synthetic/cleaned_data.csv
+  processed_dir: data/synthetic/processed
+  models_dir: data/synthetic/models
+  reports_dir: data/synthetic/reports
+
+prepare:
+  test_size: 0.2
+  reference_year: 2025
+
+severity:
+  cv_folds: 3
+  n_jobs: 1
+  random_forest:
+    n_estimators: 30
+    min_samples_leaf: 10
+  xgboost_default:
+    n_estimators: 100
+    learning_rate: 0.1
+  search:
+    n_iter: 6
+    space:
+      n_estimators: [100, 200]
+      learning_rate: [0.05, 0.1]
+      max_depth: [2, 3, 4]
+      min_child_weight: [1, 5, 20]
+      subsample: [0.8, 1.0]
+      colsample_bytree: [0.8, 1.0]
+      reg_lambda: [1, 10, 50]
+
+claim_probability:
+  n_jobs: 1
+  logistic_regression:
+    max_iter: 500
+  xgboost:
+    n_estimators: 100
+    learning_rate: 0.1
+    max_depth: 4
+
+evaluate:
+  shap_sample_size: 300
+  latency:
+    batch_size: 1000
+    repeats: 30
+
+gates:
+  max_batch_latency_ms: 15
+  min_rmse_reduction_vs_xgboost_default_pct: 0
+  min_claim_probability_roc_auc: 0.5

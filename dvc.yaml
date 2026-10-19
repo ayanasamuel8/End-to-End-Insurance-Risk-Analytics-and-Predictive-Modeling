@@ -1,0 +1,62 @@
+stages:
+  prepare:
+    cmd: python -m src.pipeline.prepare
+    deps:
+      - data/cleaned/cleaned_data.csv
+      - src/pipeline/prepare.py
+      - src/pipeline/params.py
+      - src/task_4/data_processing.py
+      - src/task_4/feature_engineering.py
+    params:
+      - seed
+      - paths.cleaned_data
+      - paths.processed_dir
+      - prepare
+    outs:
+      - data/processed
+
+  train:
+    cmd: python -m src.pipeline.train
+    deps:
+      - data/processed
+      - src/pipeline/train.py
+      - src/pipeline/params.py
+      - src/task_4/model_training.py
+    params:
+      - seed
+      - paths.processed_dir
+      - paths.models_dir
+      - paths.reports_dir
+      - severity
+      - claim_probability
+    outs:
+      - models
+    metrics:
+      - reports/model_selection.json:
+          cache: false
+
+  evaluate:
+    cmd: python -m src.pipeline.evaluate
+    deps:
+      - data/processed
+      - models
+      - reports/model_selection.json
+      - src/pipeline/evaluate.py
+      - src/task_4/evaluation.py
+      - src/task_4/interpretability.py
+    params:
+      - seed
+      - paths.processed_dir
+      - paths.models_dir
+      - paths.reports_dir
+      - evaluate
+    metrics:
+      - reports/metrics.json:
+          cache: false
+      - reports/latency.json:
+          cache: false
+    outs:
+      - reports/shap_severity.csv:
+          cache: false
+      - reports/shap_claim_probability.csv:
+          cache: false
